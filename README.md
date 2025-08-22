@@ -6,49 +6,22 @@ Simple analytics integration for GameMaker Studio that tracks player behavior an
 [![GameMaker](https://img.shields.io/badge/GameMaker-Studio%202-green.svg)](https://www.yoyogames.com/gamemaker)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
+## 📦 Installation
+
+**Easy Install:** Download [`tokebi_analytics.yymps`](dist/tokebi_analytics.yymps) and drag into GameMaker Studio.
+
+**Manual Install:** Copy the scripts from `src/` and create the manager object.
+
 ## ⚡ Quick Start
 
-### 1. Install Scripts
-Copy the 3 scripts from `src/` into your GameMaker project:
-- Right-click "Scripts" → Create Script → paste `tokebi_core.gml` 
-- Right-click "Scripts" → Create Script → paste `tokebi_http.gml`
-- Right-click "Scripts" → Create Script → paste `tokebi_storage.gml`
+### 1. Install the Package
 
-### 2. Create Manager Object
-1. Right-click "Objects" → Create Object → name it `obj_tokebi_manager`
-2. **Add CREATE Event:**
-   - Click "Add Event" → "Create" 
-   - Paste this code:
-   ```gml
-   alarm[0] = 30 * 60; // 30 seconds at 60 FPS
-   show_debug_message("⏰ Tokebi manager started");
-   ```
+**Option 1 (Recommended):** Download from [GitHub Releases](../../releases/latest)  
+**Option 2:** Download [`tokebi_analytics.yymps`](dist/tokebi_analytics.yymps) directly from this repo
 
-3. **Add ALARM[0] Event:**
-   - Click "Add Event" → "Alarm" → "Alarm 0"
-   - Paste this code:
-   ```gml
-   show_debug_message("⏰ Auto-flush triggered");
-   tokebi_flush_events();
-   alarm[0] = 30 * 60; // Reset timer
-   ```
+Then **drag the .yymps file into GameMaker Studio** - it will install automatically!
 
-4. **Add HTTP Event:**
-   - Click "Add Event" → "Asynchronous" → "HTTP"
-   - Paste this code:
-   ```gml
-   tokebi_handle_http_response();
-   ```
-
-5. **Add DESTROY Event:**
-   - Click "Add Event" → "Destroy"
-   - Paste this code:
-   ```gml
-   show_debug_message("🔧 Tokebi manager destroyed");
-   if (global.tokebi_initialized) {
-       tokebi_flush_events(); // Final flush
-   }
-   ```
+**Manual Installation:** Copy the 3 scripts from `src/` and create `obj_tokebi_manager` using the code in `src/obj_tokebi_manager.gml`.
 
 ### 2. Get Your Tokebi Credentials
 1. Go to [tokebimetrics.com](https://tokebimetrics.com)
@@ -57,7 +30,7 @@ Copy the 3 scripts from `src/` into your GameMaker project:
 4. Copy your **API Key** and **Game ID**
 
 ### 3. Configure in Your Game
-In your main game object's **Create Event** (or obj_test for testing):
+In your main game object's **Create Event**:
 ```gml
 // Replace with your actual credentials from Tokebi dashboard
 global.tokebi_api_key = "tk_live_abc123def456";  // Your API key
@@ -70,6 +43,21 @@ tokebi_init();
 global.tokebi_api_key = "tk_live_abc123def456ghi789";
 global.tokebi_game_id = "super-puzzle-adventure";
 tokebi_init();
+```
+
+### 4. Track Events
+```gml
+// Start session when player begins
+tokebi_start_session();
+
+// Track events throughout gameplay
+tokebi_track("menu_opened", noone);
+tokebi_track_level_start("level_1");
+tokebi_track_level_complete("level_1", 45.2, 1500);
+tokebi_track_purchase("health_potion", "gold", 50);
+
+// End session when player quits
+tokebi_end_session();
 ```
 
 ### 3. Track Events
@@ -110,11 +98,30 @@ tokebi_end_session();
 - 🎯 **Pre-built Events** - Common game events ready to use
 - 🛡️ **Reliable** - Auto-retry failed requests
 
+## 📁 Project Structure
+
+```
+gamemaker-tokebi-analytics/
+├── README.md                    # This file
+├── CHANGELOG.md                 # Version history
+├── LICENSE                      # MIT license  
+├── .gitignore                   # Git ignore rules
+├── src/                         # Source files
+│   ├── tokebi_core.gml         # Main functions
+│   ├── tokebi_http.gml         # HTTP handling
+│   ├── tokebi_storage.gml      # Offline storage
+│   └── obj_tokebi_manager.gml  # Manager object events
+├── examples/                    # Usage examples
+│   ├── basic_usage.gml         # Simple implementation
+└── dist/                       # Ready-to-use packages
+    └── tokebi_analytics.yymps  # GameMaker package
+```
+
 ## 📁 Examples
 
-Check the `examples/` folder for:
+Check the `examples/` folder for detailed usage patterns:
 - `basic_usage.gml` - Simple implementation
-- `rpg_game.gml` - RPG-style tracking
+- `rpg_game.gml` - RPG-style tracking  
 - `puzzle_game.gml` - Puzzle game events
 
 ## 🐛 Troubleshooting
