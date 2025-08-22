@@ -8,19 +8,67 @@ Simple analytics integration for GameMaker Studio that tracks player behavior an
 
 ## ⚡ Quick Start
 
-### 1. Install
+### 1. Install Scripts
 Copy the 3 scripts from `src/` into your GameMaker project:
-- `tokebi_core.gml`
-- `tokebi_http.gml` 
-- `tokebi_storage.gml`
+- Right-click "Scripts" → Create Script → paste `tokebi_core.gml` 
+- Right-click "Scripts" → Create Script → paste `tokebi_http.gml`
+- Right-click "Scripts" → Create Script → paste `tokebi_storage.gml`
 
-Create `obj_tokebi_manager` using the events in `src/obj_tokebi_manager/`
+### 2. Create Manager Object
+1. Right-click "Objects" → Create Object → name it `obj_tokebi_manager`
+2. **Add CREATE Event:**
+   - Click "Add Event" → "Create" 
+   - Paste this code:
+   ```gml
+   alarm[0] = 30 * 60; // 30 seconds at 60 FPS
+   show_debug_message("⏰ Tokebi manager started");
+   ```
 
-### 2. Configure
+3. **Add ALARM[0] Event:**
+   - Click "Add Event" → "Alarm" → "Alarm 0"
+   - Paste this code:
+   ```gml
+   show_debug_message("⏰ Auto-flush triggered");
+   tokebi_flush_events();
+   alarm[0] = 30 * 60; // Reset timer
+   ```
+
+4. **Add HTTP Event:**
+   - Click "Add Event" → "Asynchronous" → "HTTP"
+   - Paste this code:
+   ```gml
+   tokebi_handle_http_response();
+   ```
+
+5. **Add DESTROY Event:**
+   - Click "Add Event" → "Destroy"
+   - Paste this code:
+   ```gml
+   show_debug_message("🔧 Tokebi manager destroyed");
+   if (global.tokebi_initialized) {
+       tokebi_flush_events(); // Final flush
+   }
+   ```
+
+### 2. Get Your Tokebi Credentials
+1. Go to [tokebimetrics.com](https://tokebimetrics.com)
+2. **Sign up** for an account
+3. **Create a new game** in your dashboard
+4. Copy your **API Key** and **Game ID**
+
+### 3. Configure in Your Game
+In your main game object's **Create Event** (or obj_test for testing):
 ```gml
-// In your game's Create event
-global.tokebi_api_key = "your-api-key-here";
-global.tokebi_game_id = "your-game-name";
+// Replace with your actual credentials from Tokebi dashboard
+global.tokebi_api_key = "tk_live_abc123def456";  // Your API key
+global.tokebi_game_id = "my-awesome-game";       // Your game name
+tokebi_init();
+```
+
+**Example with real values:**
+```gml
+global.tokebi_api_key = "tk_live_abc123def456ghi789";
+global.tokebi_game_id = "super-puzzle-adventure";
 tokebi_init();
 ```
 
@@ -56,7 +104,7 @@ tokebi_end_session();
 ## ✨ Features
 
 - 🚀 **Easy Setup** - Just 3 scripts and 1 object
-- 📈 **Near-Real-time Analytics** - Live dashboard at [tokebimetrics.com](https://tokebimetrics.com)
+- 📈 **Real-time Analytics** - Live dashboard at [tokebimetrics.com](https://tokebimetrics.com)
 - 🔄 **Auto-batching** - Events sent every 30 seconds automatically
 - 💾 **Offline Support** - Events saved when offline, sent when back online
 - 🎯 **Pre-built Events** - Common game events ready to use
