@@ -1,207 +1,187 @@
-/// Tokebi Analytics Core Functions
-/// All main functions in one simple script
-
-// Global variables
-global.tokebi_initialized = false;
-global.tokebi_event_queue = undefined;
-global.tokebi_player_id = "";
-global.tokebi_session_id = "";
-global.tokebi_game_registered = false;
-global.tokebi_real_game_id = "";
-global.tokebi_environment = ""; // Auto-detected in tokebi_init()
-
-// Settings (set these before calling tokebi_init)
-global.tokebi_api_key = "";
-global.tokebi_game_id = "";
-global.tokebi_endpoint = "https://tokebi-api.vercel.app";
+/// Tokebi Analytics Core Functions - Minimal Logging
 
 /// @description Initialize Tokebi Analytics
 function tokebi_init() {
-    if (global.tokebi_initialized) return;
-    
-    show_debug_message("🔧 Initializing Tokebi Analytics...");
-    
-    // Auto-detect environment
-    if (debug_mode) {
-        global.tokebi_environment = "development";
-        show_debug_message("🔧 Auto-detected: DEVELOPMENT mode");
-    } else {
-        global.tokebi_environment = "production";  
-        show_debug_message("🔧 Auto-detected: PRODUCTION mode");
-    }
-    
-    // Setup
+    global.tokebi_initialized = true;
     global.tokebi_event_queue = ds_list_create();
     global.tokebi_player_id = tokebi_get_player_id();
-    global.tokebi_initialized = true;
+    global.tokebi_session_id = "";
+    global.tokebi_game_registered = false;
+    global.tokebi_real_game_id = "";
     
-    // Create manager if needed
+    // Auto-detect environment
+    global.tokebi_environment = debug_mode ? "development" : "production";
+    
+    // Set defaults if not set
+    if (!variable_global_exists("tokebi_api_key")) global.tokebi_api_key = "";
+    if (!variable_global_exists("tokebi_game_id")) global.tokebi_game_id = "";
+    if (!variable_global_exists("tokebi_endpoint")) global.tokebi_endpoint = "https://tokebi-api.vercel.app";
+    
+    // Create manager
     if (!instance_exists(obj_tokebi_manager)) {
-        var manager = instance_create_depth(0, 0, 0, obj_tokebi_manager);
-        instance_mark_persistent(manager, true);
+        var mgr = instance_create_depth(0, 0, 0, obj_tokebi_manager);
+        instance_mark_persistent(mgr, true);
     }
     
-    // Load offline events and register game
+    // Initialize
     tokebi_load_offline_events();
     tokebi_register_game();
     
-    show_debug_message("✅ Tokebi Analytics ready!");
+    show_debug_message("Tokebi Analytics initialized");
 }
 
-/// @description Start analytics session
+/// @description Start session
 function tokebi_start_session() {
     global.tokebi_session_id = "session_" + string(date_current_datetime()) + "_" + string(irandom(99999));
     
-    var data = ds_map_create();
-    ds_map_add(data, "session_id", global.tokebi_session_id);
-    tokebi_track("session_start", data);
-    ds_map_destroy(data);
-    
-    show_debug_message("🎮 Session started: " + global.tokebi_session_id);
+    var session_data = ds_map_create();
+    ds_map_add(session_data, "session_id", global.tokebi_session_id);
+    tokebi_track("session_start", session_data);
+    ds_map_destroy(session_data);
 }
 
-/// @description End analytics session  
+/// @description End session  
 function tokebi_end_session() {
     if (global.tokebi_session_id == "") return;
     
-    var data = ds_map_create();
-    ds_map_add(data, "session_id", global.tokebi_session_id);
-    tokebi_track("session_end", data);
-    ds_map_destroy(data);
+    var session_data = ds_map_create();
+    ds_map_add(session_data, "session_id", global.tokebi_session_id);
+    tokebi_track("session_end", session_data);
+    ds_map_destroy(session_data);
     
-    tokebi_flush_events(); // Force send on session end
+    tokebi_flush_events();
     global.tokebi_session_id = "";
-    
-    show_debug_message("🎮 Session ended");
 }
 
 /// @description Track custom event
-/// @param {string} event_name - Name of event
-/// @param {ds_map} event_data - Data map (optional)
 function tokebi_track(event_name, event_data = noone) {
-    if (!global.tokebi_initialized) {
-        show_debug_message("❌ Call tokebi_init() first!");
-        return;
-    }
+    if (!global.tokebi_initialized) return;
     
-    // Create event object with correct database field names
-    var event_obj = ds_map_create();
-    ds_map_add(event_obj, "event_type", event_name);           // Database: event_type
-    ds_map_add(event_obj, "game_id", global.tokebi_real_game_id != "" ? global.tokebi_real_game_id : global.tokebi_game_id);
-    ds_map_add(event_obj, "player_id", global.tokebi_player_id); // Database: player_id
-    ds_map_add(event_obj, "platform", "gamemaker");
-    ds_map_add(event_obj, "environment", global.tokebi_environment); // Auto-detected environment
-    ds_map_add(event_obj, "timestamp", string(date_current_datetime()));
+    var enhanced_data = ds_map_create();
     
-    // Add session if active
-    if (global.tokebi_session_id != "") {
-        ds_map_add(event_obj, "session_id", global.tokebi_session_id);
-    }
-    
-    // Add custom data
-    var payload = ds_map_create();
     if (event_data != noone && ds_exists(event_data, ds_type_map)) {
-        ds_map_copy(payload, event_data);
+        ds_map_copy(enhanced_data, event_data);
     }
-    ds_map_add_map(event_obj, "payload", payload);
     
-    // Queue event
-    ds_list_add(global.tokebi_event_queue, event_obj);
+    if (global.tokebi_session_id != "") {
+        ds_map_add(enhanced_data, "session_id", global.tokebi_session_id);
+    }
     
-    show_debug_message("📊 Tracked: " + event_name + " (Queue: " + string(ds_list_size(global.tokebi_event_queue)) + ")");
+    tokebi_queue_event(event_name, enhanced_data);
+    ds_map_destroy(enhanced_data);
+}
+
+/// @description Track level start
+function tokebi_track_level_start(level_name) {
+    var level_data = ds_map_create();
+    ds_map_add(level_data, "level", level_name);
+    tokebi_track("level_start", level_data);
+    ds_map_destroy(level_data);
+}
+
+/// @description Track level completion
+function tokebi_track_level_complete(level_name, completion_time, score) {
+    var level_data = ds_map_create();
+    ds_map_add(level_data, "level", level_name);
+    ds_map_add(level_data, "completion_time", string(completion_time));
+    ds_map_add(level_data, "score", string(score));
+    tokebi_track("level_complete", level_data);
+    ds_map_destroy(level_data);
+}
+
+/// @description Track purchase
+function tokebi_track_purchase(item_id, currency, cost) {
+    var purchase_data = ds_map_create();
+    ds_map_add(purchase_data, "item_id", item_id);
+    ds_map_add(purchase_data, "currency", currency);
+    ds_map_add(purchase_data, "cost", string(cost));
+    tokebi_track("item_purchase", purchase_data);
+    ds_map_destroy(purchase_data);
+}
+
+/// @description Queue event for sending
+function tokebi_queue_event(event_type, event_data) {
+    if (global.tokebi_api_key == "" || global.tokebi_game_id == "") return;
     
-    // Auto-flush if queue is full
+    var game_id_to_use = global.tokebi_real_game_id != "" ? global.tokebi_real_game_id : global.tokebi_game_id;
+    
+    var tokebi_event = ds_map_create();
+    ds_map_add(tokebi_event, "eventType", event_type);
+    ds_map_add(tokebi_event, "gameId", game_id_to_use);
+    ds_map_add(tokebi_event, "playerId", global.tokebi_player_id);
+    ds_map_add(tokebi_event, "platform", "gamemaker");
+    ds_map_add(tokebi_event, "environment", global.tokebi_environment);
+    
+    var payload_copy = ds_map_create();
+    if (ds_exists(event_data, ds_type_map)) {
+        ds_map_copy(payload_copy, event_data);
+    }
+    ds_map_add_map(tokebi_event, "payload", payload_copy);
+    
+    ds_list_add(global.tokebi_event_queue, tokebi_event);
+    
     if (ds_list_size(global.tokebi_event_queue) >= 100) {
         tokebi_flush_events();
     }
 }
 
-/// @description Track level start
-function tokebi_track_level_start(level_name) {
-    var data = ds_map_create();
-    ds_map_add(data, "level", level_name);
-    tokebi_track("level_start", data);
-    ds_map_destroy(data);
-}
-
-/// @description Track level completion
-function tokebi_track_level_complete(level_name, completion_time, score) {
-    var data = ds_map_create();
-    ds_map_add(data, "level", level_name);
-    ds_map_add(data, "completion_time", string(completion_time));
-    ds_map_add(data, "score", string(score));
-    tokebi_track("level_complete", data);
-    ds_map_destroy(data);
-}
-
-/// @description Track purchase
-function tokebi_track_purchase(item_id, currency, cost) {
-    var data = ds_map_create();
-    ds_map_add(data, "item_id", item_id);
-    ds_map_add(data, "currency", currency);
-    ds_map_add(data, "cost", string(cost));
-    tokebi_track("item_purchase", data);
-    ds_map_destroy(data);
-}
-
-/// @description Manually flush all queued events
+/// @description Flush all events
 function tokebi_flush_events() {
-    if (!global.tokebi_initialized || ds_list_size(global.tokebi_event_queue) == 0) {
-        return;
+    if (!global.tokebi_initialized) return;
+    
+    var queue_size = ds_list_size(global.tokebi_event_queue);
+    if (queue_size == 0) return;
+    
+    // Build JSON manually
+    var json_string = "{\"events\":[";
+    var list_index = 0;
+    
+    repeat(queue_size) {
+        var current_event = ds_list_find_value(global.tokebi_event_queue, list_index);
+        
+        if (list_index > 0) {
+            json_string += ",";
+        }
+        json_string += json_encode(current_event);
+        
+        list_index += 1;
     }
     
-    show_debug_message("📤 Flushing " + string(ds_list_size(global.tokebi_event_queue)) + " events...");
+    json_string += "]}";
     
-    // Create batch payload
-    var events_array = ds_list_create();
-    for (var i = 0; i < ds_list_size(global.tokebi_event_queue); i++) {
-        ds_list_add(events_array, ds_list_find_value(global.tokebi_event_queue, i));
-    }
-    
-    var batch = ds_map_create();
-    ds_map_add_list(batch, "events", events_array);
-    var json_payload = json_encode(batch);
-    ds_map_destroy(batch);
-    
-    // Send HTTP request
-    tokebi_send_events(json_payload, ds_list_size(global.tokebi_event_queue));
-    
-    // Clear queue
+    tokebi_send_events(json_string, queue_size);
     tokebi_clear_queue();
 }
 
-/// @description Get persistent player ID
+/// @description Get player ID
 function tokebi_get_player_id() {
     var file_name = "tokebi_player_id.txt";
     
-    // Try to load existing ID
     if (file_exists(file_name)) {
-        var file = file_text_open_read(file_name);
-        var player_id = file_text_read_string(file);
-        file_text_close(file);
+        var file_handle = file_text_open_read(file_name);
+        var player_id = file_text_read_string(file_handle);
+        file_text_close(file_handle);
         if (string_length(player_id) > 0) {
             return player_id;
         }
     }
     
-    // Generate new ID
     var new_id = "player_" + string(date_current_datetime()) + "_" + string(irandom(999999));
     
-    // Save it
-    var file = file_text_open_write(file_name);
-    file_text_write_string(file, new_id);
-    file_text_close(file);
+    var file_handle = file_text_open_write(file_name);
+    file_text_write_string(file_handle, new_id);
+    file_text_close(file_handle);
     
     return new_id;
 }
 
-/// @description Clear event queue and cleanup
+/// @description Clear event queue
 function tokebi_clear_queue() {
-    for (var i = 0; i < ds_list_size(global.tokebi_event_queue); i++) {
-        var event_obj = ds_list_find_value(global.tokebi_event_queue, i);
+    repeat(ds_list_size(global.tokebi_event_queue)) {
+        var event_obj = ds_list_find_value(global.tokebi_event_queue, 0);
         if (ds_exists(event_obj, ds_type_map)) {
             ds_map_destroy(event_obj);
         }
+        ds_list_delete(global.tokebi_event_queue, 0);
     }
-    ds_list_clear(global.tokebi_event_queue);
 }
