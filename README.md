@@ -88,4 +88,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [Tokebi Platform](https://tokebimetrics.com)
 - [Get API Key](https://tokebimetrics.com)
-- [Documentation](https://tokebimetrics.com/docs)
+- [Documentation](https://www.tokebimetrics.com/documentation-guide)
