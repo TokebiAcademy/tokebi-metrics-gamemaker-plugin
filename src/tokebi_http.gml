@@ -48,7 +48,7 @@ function tokebi_send_events(json_payload, event_count) {
 /// @description Handle HTTP response (call from obj_tokebi_manager HTTP event)
 function tokebi_handle_http_response() {
     var request_id = string(async_load[? "id"]);
-    var status = async_load[? "status"];
+    var status = async_load[? "http_status"];  // ← CHANGE: Use "http_status" not "status"
     var result = async_load[? "result"];
     
     if (!ds_map_exists(global.tokebi_pending_requests, request_id)) {
