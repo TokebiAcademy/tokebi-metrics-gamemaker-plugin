@@ -1,18 +1,64 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+# GameMaker Studio 2 Files
+*.yyp.backup*
+*.yy.backup*
+*.yymp.backup*
+options/main/inherited/options_main.inherited.yy.backup*
 
-# Other files and folders
-.settings/
+# Build outputs
+builds/
+gen/
+cache/
+datafiles/
+*.yydx
+*.yymp
+*.yyp.backup
+*.yy.backup
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
+# Temp files
+temp/
+logs/
+*.tmp
+*.log
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if using any build tools)
+node_modules/
+npm-debug.log*
+
+# Compiled extensions
+*.dll
+*.dylib
+*.so
+
+# Test files
+test_output/
+debug/
+
+# Distribution files (keep source, ignore builds)
+# Remove the line below if you want to track .yymps files
+*.yymps
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Package manager files
+package-lock.json
+yarn.lock
