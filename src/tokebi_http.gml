@@ -1,5 +1,4 @@
-/// Tokebi HTTP Functions
-/// Simple HTTP handling for Tokebi Analytics
+/// Tokebi HTTP Functions - Minimal Logging
 
 // Track pending requests
 global.tokebi_pending_requests = ds_map_create();
@@ -9,8 +8,6 @@ function tokebi_register_game() {
     if (global.tokebi_game_registered || global.tokebi_api_key == "" || global.tokebi_game_id == "") {
         return;
     }
-    
-    show_debug_message("🔧 Registering game...");
     
     var payload = ds_map_create();
     ds_map_add(payload, "gameName", global.tokebi_game_id);
@@ -29,13 +26,8 @@ function tokebi_register_game() {
 }
 
 /// @description Send events batch to Tokebi
-/// @param {string} json_payload - JSON string of events
-/// @param {real} event_count - Number of events being sent
 function tokebi_send_events(json_payload, event_count) {
-    if (global.tokebi_api_key == "" || global.tokebi_game_id == "") {
-        show_debug_message("❌ No API key or game ID configured");
-        return;
-    }
+    if (global.tokebi_api_key == "" || global.tokebi_game_id == "") return;
     
     var headers = ds_map_create();
     ds_map_add(headers, "Content-Type", "application/json");
@@ -45,14 +37,14 @@ function tokebi_send_events(json_payload, event_count) {
     ds_map_add(global.tokebi_pending_requests, string(request_id), "events:" + string(event_count));
 }
 
-/// @description Handle HTTP response (call from obj_tokebi_manager HTTP event)
+/// @description Handle HTTP response
 function tokebi_handle_http_response() {
     var request_id = string(async_load[? "id"]);
-    var status = async_load[? "http_status"];  // ← CHANGE: Use "http_status" not "status"
+    var status = async_load[? "http_status"];
     var result = async_load[? "result"];
     
     if (!ds_map_exists(global.tokebi_pending_requests, request_id)) {
-        return; // Unknown request
+        return;
     }
     
     var request_type = ds_map_find_value(global.tokebi_pending_requests, request_id);
@@ -61,36 +53,46 @@ function tokebi_handle_http_response() {
     if (request_type == "registration") {
         tokebi_handle_registration_response(status, result);
     } else if (string_pos("events:", request_type) == 1) {
-        var event_count = real(string_delete(request_type, 1, 7)); // Remove "events:" prefix
+        var event_count = real(string_delete(request_type, 1, 7));
         tokebi_handle_events_response(status, result, event_count);
+    }
+}
+
+/// @description Update queued events with real game ID
+function tokebi_update_queued_game_ids() {
+    var queue_size = ds_list_size(global.tokebi_event_queue);
+    if (queue_size == 0) return;
+    
+    for (var i = 0; i < queue_size; i++) {
+        var event_obj = ds_list_find_value(global.tokebi_event_queue, i);
+        if (ds_exists(event_obj, ds_type_map) && ds_map_exists(event_obj, "gameId")) {
+            var current_id = ds_map_find_value(event_obj, "gameId");
+            if (current_id == global.tokebi_game_id) {
+                ds_map_replace(event_obj, "gameId", global.tokebi_real_game_id);
+            }
+        }
     }
 }
 
 /// @description Handle game registration response
 function tokebi_handle_registration_response(status, result) {
     if (status == 200 || status == 201) {
-        show_debug_message("✅ Game registered successfully");
-        
-        // Try to extract real game ID from response
         var response_map = json_decode(result);
         if (ds_exists(response_map, ds_type_map) && ds_map_exists(response_map, "game_id")) {
             global.tokebi_real_game_id = ds_map_find_value(response_map, "game_id");
-            show_debug_message("🔧 Got real game ID: " + global.tokebi_real_game_id);
+            tokebi_update_queued_game_ids();
             ds_map_destroy(response_map);
         }
-        
         global.tokebi_game_registered = true;
-    } else {
-        show_debug_message("❌ Game registration failed: " + string(status));
+        show_debug_message("Tokebi game registered");
     }
 }
 
 /// @description Handle events batch response
 function tokebi_handle_events_response(status, result, event_count) {
     if (status == 200) {
-        show_debug_message("✅ Sent " + string(event_count) + " events successfully");
+        show_debug_message("Tokebi events sent: " + string(event_count));
     } else {
-        show_debug_message("❌ Failed to send events: " + string(status));
-        // Could save failed events here for retry if needed
+        show_debug_message("Tokebi events failed: " + string(status));
     }
 }
