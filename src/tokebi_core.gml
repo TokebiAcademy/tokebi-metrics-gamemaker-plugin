@@ -8,6 +8,7 @@ global.tokebi_player_id = "";
 global.tokebi_session_id = "";
 global.tokebi_game_registered = false;
 global.tokebi_real_game_id = "";
+global.tokebi_environment = ""; // Auto-detected in tokebi_init()
 
 // Settings (set these before calling tokebi_init)
 global.tokebi_api_key = "";
@@ -19,6 +20,15 @@ function tokebi_init() {
     if (global.tokebi_initialized) return;
     
     show_debug_message("🔧 Initializing Tokebi Analytics...");
+    
+    // Auto-detect environment
+    if (debug_mode) {
+        global.tokebi_environment = "development";
+        show_debug_message("🔧 Auto-detected: DEVELOPMENT mode");
+    } else {
+        global.tokebi_environment = "production";  
+        show_debug_message("🔧 Auto-detected: PRODUCTION mode");
+    }
     
     // Setup
     global.tokebi_event_queue = ds_list_create();
@@ -74,12 +84,13 @@ function tokebi_track(event_name, event_data = noone) {
         return;
     }
     
-    // Create event object
+    // Create event object with correct database field names
     var event_obj = ds_map_create();
-    ds_map_add(event_obj, "eventType", event_name);
-    ds_map_add(event_obj, "gameId", global.tokebi_real_game_id != "" ? global.tokebi_real_game_id : global.tokebi_game_id);
-    ds_map_add(event_obj, "playerId", global.tokebi_player_id);
+    ds_map_add(event_obj, "event_type", event_name);           // Database: event_type
+    ds_map_add(event_obj, "game_id", global.tokebi_real_game_id != "" ? global.tokebi_real_game_id : global.tokebi_game_id);
+    ds_map_add(event_obj, "player_id", global.tokebi_player_id); // Database: player_id
     ds_map_add(event_obj, "platform", "gamemaker");
+    ds_map_add(event_obj, "environment", global.tokebi_environment); // Auto-detected environment
     ds_map_add(event_obj, "timestamp", string(date_current_datetime()));
     
     // Add session if active
