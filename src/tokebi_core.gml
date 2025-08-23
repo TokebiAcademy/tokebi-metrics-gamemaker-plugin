@@ -10,8 +10,8 @@ function tokebi_init() {
     global.tokebi_real_game_id = "";
     
     // Auto-detect environment
-    global.tokebi_environment = debug_mode ? "development" : "production";
-    
+    global.tokebi_environment = tokebi_detect_environment();
+   
     // Set defaults if not set
     if (!variable_global_exists("tokebi_api_key")) global.tokebi_api_key = "";
     if (!variable_global_exists("tokebi_game_id")) global.tokebi_game_id = "";
@@ -28,6 +28,33 @@ function tokebi_init() {
     tokebi_register_game();
     
     show_debug_message("Tokebi Analytics initialized");
+}
+
+/// @description Detect if running in GameMaker Studio IDE
+function tokebi_detect_environment() {
+    // Check if explicitly set by developer first
+    if (variable_global_exists("tokebi_environment")) {
+        return global.tokebi_environment;
+    }
+    
+    // In GameMaker Studio IDE, the game typically runs from a temp directory
+    // and has debug_mode enabled by default when testing
+    var is_development = false;
+    
+    // Primary indicator: debug mode is usually on when running from IDE
+    if (debug_mode) {
+        is_development = true;
+    }
+    
+    // Secondary check: Look at the working directory
+    // When running from IDE, it's usually in a temp folder
+    var working_dir = working_directory;
+    if (string_pos("temp", string_lower(working_dir)) > 0 || 
+        string_pos("appdata", string_lower(working_dir)) > 0) {
+        is_development = true;
+    }
+    
+    return is_development ? "development" : "production";
 }
 
 /// @description Start session
